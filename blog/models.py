@@ -1,9 +1,12 @@
 import json
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import serializers
 from django.db import models
+from django.core.files.storage import FileSystemStorage
 
+fs = FileSystemStorage(location=settings.BASE_DIR + '/thumbs/photos')
 
 def get_dictionary(obj):
     data = serializers.serialize("json", [obj])
@@ -18,7 +21,9 @@ class Blog(models.Model):
     title = models.CharField(max_length=256, default="")
     body = models.TextField(default="")
     writer = models.ForeignKey(User)
-    thumb = models.ImageField(upload_to='thumb')
+    thumb = models.ImageField(storage=fs)
+
+    user_id = models.IntegerField(null=True)
 
     updated = models.DateTimeField(auto_now=True, null=True)
     created = models.DateTimeField(auto_now_add=True, null=True)
@@ -32,6 +37,8 @@ class Comment(models.Model):
     writer = models.ForeignKey(User)
     parent = models.ForeignKey(Blog)
     parent_comment = models.IntegerField(db_index=True, null=True)
+
+    user_id = models.IntegerField(null=True)
 
     updated = models.DateTimeField(auto_now=True, null=True)
     created = models.DateTimeField(auto_now_add=True, null=True)
