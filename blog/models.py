@@ -6,7 +6,7 @@ from django.core import serializers
 from django.db import models
 from django.core.files.storage import FileSystemStorage
 
-fs = FileSystemStorage(location=settings.BASE_DIR + '/thumbs/photos')
+fs = FileSystemStorage(location=settings.BASE_DIR + '/static/thumb')
 
 def get_dictionary(obj):
     data = serializers.serialize("json", [obj])
