@@ -3,7 +3,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from blog.models import Blog
+from blog.models import Blog, Comment
 
 
 def reply(status=False, msg="Some error occurred", code=500, dictionary=None):
@@ -64,19 +64,22 @@ def blogs(request):
 
 @csrf_exempt
 def blog(request, blog_id):
-    if request.method not in ('GET', 'PATCH', 'DELETE'):
+    if request.method not in ('GET', 'POST', 'DELETE'):
         return reply(False, 'Incorrect request method, Should be GET, PATCH or DELETE', 405)
 
+    # Get blog object
     try:
         b = Blog.objects.get(id=blog_id)
     except ObjectDoesNotExist:
         return reply(False, 'Blog does not exist', 404)
 
+    # Gt blog details
     if request.method == 'GET':
         return reply(True, 'Blog details', 200, b.get_dictionary())
 
-    elif request.method == 'PATCH':
-        patch = request.PATCH
+    # Edit blog
+    elif request.method == 'POST':
+        patch = request.POST
         if patch.get('title', None) is not None:
             b.title = patch['title']
         if patch.get('body', None) is not None:
@@ -92,9 +95,83 @@ def blog(request, blog_id):
             b.title = patch['title']
         b.save()
         return reply(True, 'Blog updated successfully', 200)
+
+    # delete blog
     else:
         b.delete()
         return reply(True, 'Blog deleted successfully', 200)
 
 
-    return JsonResponse({})
+@csrf_exempt
+def comments(request):
+    if request.method not in ('POST', 'GET'):
+        return reply(False, 'Incorrect request method, Should be GET or POST', 405)
+
+    # Create a new blog entry
+    elif request.method == 'POST':
+
+        # Get parameters
+        mandatory_keys = ['text', 'writer', 'blog']
+        optional_keys = ['comment']
+        params = get_params(request, mandatory_keys, optional_keys)
+        if type(params) == tuple:
+            return reply(params[0], params[1], 422)
+
+        # Create comment
+        new_comment = Comment()
+        new_comment.text = params['text']
+
+        try:
+            new_comment.writer = User.objects.get(id=params['writer'])
+        except ObjectDoesNotExist:
+            return reply(False, 'Incorrect user id', 401)
+
+        try:
+            new_comment.parent = Blog.objects.get(id=params['blog'])
+        except ObjectDoesNotExist:
+            return reply(False, 'blog does not exist', 404)
+        if params['comment'] is not None:
+            try:
+                new_comment.parent_comment = Comment.objects.get(id=params['comment'])
+            except ObjectDoesNotExist:
+                return reply(False, 'Comment does not exist', 404)
+
+        new_comment.save()
+
+        return reply(True, 'Comment created successfully', 200)
+
+    # Get List of all comments
+    else:
+        comment_list = Comment.objects.all()
+        return reply(True, 'List of Comments', 200, [c.get_dictionary() for c in comment_list])
+
+
+@csrf_exempt
+def comment(request, comment_id):
+    if request.method not in ('GET', 'POST', 'DELETE'):
+        return reply(False, 'Incorrect request method, Should be GET, PATCH or DELETE', 405)
+
+    # Get comment object
+    try:
+        c = Comment.objects.get(id=comment_id)
+    except ObjectDoesNotExist:
+        return reply(False, 'Comment does not exist', 404)
+
+    # return a comment
+    if request.method == 'GET':
+        return reply(True, 'Comment details', 200, c.get_dictionary())
+
+    # update a comment
+    elif request.method == 'POST':
+        patch = request.POST
+        if patch.get('text', None) is not None:
+            c.text = patch['text']
+            c.save()
+
+        c.save()
+        return reply(True, 'Comment updated successfully', 200)
+
+    # delete a comment
+    else:
+        c.delete()
+        return reply(True, 'Comment deleted successfully', 200)

@@ -31,7 +31,7 @@ class Comment(models.Model):
     text = models.TextField(default="")
     writer = models.ForeignKey(User)
     parent = models.ForeignKey(Blog)
-    parent_comment = models.IntegerField(db_index=True)
+    parent_comment = models.IntegerField(db_index=True, null=True)
 
     updated = models.DateTimeField(auto_now=True, null=True)
     created = models.DateTimeField(auto_now_add=True, null=True)
