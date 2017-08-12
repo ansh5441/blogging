@@ -58,8 +58,8 @@ def blogs(request):
 
     # Get List of all blogs
     else:
-        blog_list = Blog.objects.all()
-        return reply(True, 'List of blogs', 200, [b.get_dictionary() for b in blog_list])
+        blog_list = get_user_details([b.get_dictionary() for b in Blog.objects.all()])
+        return reply(True, 'List of blogs', 200, blog_list)
 
 
 @csrf_exempt
@@ -142,8 +142,9 @@ def comments(request):
 
     # Get List of all comments
     else:
-        comment_list = Comment.objects.all()
-        return reply(True, 'List of Comments', 200, [c.get_dictionary() for c in comment_list])
+        comment_list = get_user_details([c.get_dictionary() for c in Comment.objects.all()])
+
+        return reply(True, 'List of Comments', 200, comment_list)
 
 
 @csrf_exempt
@@ -166,12 +167,93 @@ def comment(request, comment_id):
         patch = request.POST
         if patch.get('text', None) is not None:
             c.text = patch['text']
-            c.save()
 
-        c.save()
+            c.save()
         return reply(True, 'Comment updated successfully', 200)
 
     # delete a comment
     else:
         c.delete()
         return reply(True, 'Comment deleted successfully', 200)
+
+
+def get_user_profiles(comment_list):
+    user_ids = []
+    comment_ids = []
+    new_comment_list = []
+    for c in comment_list:
+        new_comment_list.append(c.get_dictionary())
+        user_ids.append(c.user_id)
+        if c.parent_comment is not None:
+            comment_ids.append(c.parent_comment.id)
+
+    parent_comments = Comment.objects.filter(id__in=comment_ids)
+
+    for c in parent_comments:
+        user_ids.append(c.user_id)
+
+    all_users = User.objects.filter(id__in=user_ids)
+
+    all_users_hash = {}
+    for u in all_users:
+        all_users_hash[u.id] = {
+            'username': u.username,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'email': u.email
+        }
+
+    for c in new_comment_list:
+        c['user_detail'] = all_users_hash[c['user_id']]
+
+    return new_comment_list
+
+
+# add user details to data
+def get_user_details(data):
+    user_ids = find_user_ids(data, 'user_id')
+    user_details = User.objects.filter(id__in=user_ids)
+    user_details_dictionary = {}
+    for u in user_details:
+        user_details_dictionary[u.id] = {
+            'name': u.first_name + " " + u.last_name,
+            'email': u.email,
+            'username': u.username
+        }
+    link_key_details(data, user_details_dictionary, 'user_id')
+
+    return data
+
+
+# function to find nested keys in data
+def find_user_ids(data, key):
+    val = []
+    if not data:
+        return
+    if type(data) == list:
+        for k in data:
+            val.extend(find_user_ids(k, key))
+
+    if type(data) == dict:
+        for k in data.keys():
+            if k == key:
+                val.extend([data[k]])
+            elif type(data[k]) in (dict, list):
+                val.extend(find_user_ids(data[k], key))
+    return list(set(val))
+
+
+# function to replace keys with details
+def link_key_details(data, other_data, key):
+    if not data:
+        return
+    if type(data) == list:
+        for k in data:
+            link_key_details(k, other_data, key)
+
+    if type(data) == dict:
+        for k in data.keys():
+            if k == key:
+                data[k] = other_data[data[k]]
+            elif type(data[k]) in (dict, list):
+                link_key_details(data[k], other_data, key)
