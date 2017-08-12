@@ -58,8 +58,18 @@ def blogs(request):
 
     # Get List of all blogs
     else:
-        blog_list = get_user_details([b.get_dictionary() for b in Blog.objects.all()])
-        return reply(True, 'List of blogs', 200, blog_list)
+        page = request.GET.get('page', 1)
+        if page == '1':
+            blog_list = [b.get_dictionary() for b in Blog.objects.all()[:20]]
+
+        elif page == 'refresh':
+            t = request.GET.get('t', None)
+            blog_list = [b.get_dictionary() for b in Blog.objects.filter(updated__gte=t)[:20]]
+        elif int(page) > 1:
+            last_id = int(request.GET.get('last_id', None))
+            blog_list = [b.get_dictionary() for b in Blog.objects.all()[last_id:max(last_id - 20, 0)]]
+
+        return reply(True, 'List of blogs', 200, get_user_details(blog_list))
 
 
 @csrf_exempt
