@@ -58,16 +58,17 @@ def blogs(request):
 
     # Get List of all blogs
     else:
+        num_per_page = 20
         page = request.GET.get('page', 1)
         if page == '1':
-            blog_list = [b.get_dictionary() for b in Blog.objects.all()[:20]]
+            blog_list = [b.get_dictionary() for b in Blog.objects.all()[:num_per_page]]
 
         elif page == 'refresh':
             t = request.GET.get('t', None)
-            blog_list = [b.get_dictionary() for b in Blog.objects.filter(updated__gte=t)[:20]]
+            blog_list = [b.get_dictionary() for b in Blog.objects.filter(updated__gte=t)]
         elif int(page) > 1:
-            last_id = int(request.GET.get('last_id', None))
-            blog_list = [b.get_dictionary() for b in Blog.objects.all()[last_id:max(last_id - 20, 0)]]
+            max_id = int(request.GET.get('max_id', None))
+            blog_list = [b.get_dictionary() for b in Blog.objects.all()[max_id:max(max_id - num_per_page, 0)]]
 
         return reply(True, 'List of blogs', 200, get_user_details(blog_list))
 
